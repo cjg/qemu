@@ -18,6 +18,7 @@
 #include "pci.h"
 #include "pc.h"
 #include "qemu_socket.h"
+#include "qemu-thread.h"
 
 #define PCI_COMMAND_IOACCESS                0x0001
 #define PCI_COMMAND_MEMACCESS               0x0002
@@ -35,11 +36,14 @@
 /* Registers */
 /* Read Only */
 #define VMSOCKET_STATUS_L_REG       0x0
+#define VMSOCKET_READ_END_L_REG     0x80
+#define VMSOCKET_INTR_GET_L_REG     0xA0
 /* Write Only */
 #define VMSOCKET_CONNECT_W_REG      0x20
 #define VMSOCKET_CLOSE_W_REG        0x30
 #define VMSOCKET_WRITE_COMMIT_L_REG 0x40
-#define VMSOCKET_READ_L_REG         0x60
+#define VMSOCKET_READ_BEGIN_L_REG   0x60
+#define VMSOCKET_INTR_SET_L_REG     0xC0
 
 typedef struct VMSocketState {
 	uint32_t regs_addr;
@@ -54,6 +58,13 @@ typedef struct VMSocketState {
 
 	int fd;
 	int status;
+	int interrupt;
+
+	pthread_mutex_t mutex;
+	int count;
+	int readed;
+
+	PCIDevice *pci_dev;
 } VMSocketState;
 
 typedef struct PCI_VMSocketState {
@@ -70,17 +81,21 @@ void vmsocket_init(const char * optarg) {
 static void vmsocket_write(VMSocketState *s, uint32_t count) 
 {
 	s->status = write(s->fd, s->outbuffer, count);
+	fsync(s->fd);
 	VMSOCKET_DPRINTF("Write request: count: %u status: %d\n", count, 
 			 s->status);
 }
 
-static void vmsocket_read(VMSocketState *s, uint32_t count) 
+static void *vmsocket_read_begin(void *arg)
 {
-	size_t readed = 0;
-	readed = read(s->fd, s->inbuffer, count);
-	VMSOCKET_DPRINTF("Read request: %u readed: %u\n", (unsigned) count, 
-			 (unsigned) readed);
-	s->status = readed;
+	VMSocketState *s = (VMSocketState *) arg;
+	pthread_mutex_lock(&s->mutex);
+	s->readed = read(s->fd, s->inbuffer, s->count);
+	VMSOCKET_DPRINTF("Read request: %u readed: %u\n", (unsigned) s->count, 
+			 (unsigned) s->readed);
+	s->interrupt = 1;
+	qemu_set_irq(s->pci_dev->irq[0], 1);
+	return NULL;
 }
 
 static void vmsocket_regs_writew(void *opaque, target_phys_addr_t addr, 
@@ -110,9 +125,18 @@ static void vmsocket_regs_writel(void *opaque, target_phys_addr_t addr,
 		VMSOCKET_DPRINTF("WriteCommit: count: %u.\n", val);
 		vmsocket_write(s, val);
 		break;
-	case VMSOCKET_READ_L_REG:
-		VMSOCKET_DPRINTF("Read: count: %u.\n", val);
-		vmsocket_read(s, val);
+	case VMSOCKET_READ_BEGIN_L_REG:
+		pthread_mutex_lock(&s->mutex);
+		s->readed = 0;
+		s->count = val;
+		VMSOCKET_DPRINTF("Read request: %u\n", (unsigned) s->count); 
+		pthread_t t;
+		pthread_create(&t, NULL, vmsocket_read_begin, s);
+		pthread_mutex_unlock(&s->mutex);
+		break;
+	case VMSOCKET_INTR_SET_L_REG:
+		s->interrupt = val;
+		qemu_set_irq(s->pci_dev->irq[0], s->interrupt);
 		break;
 	default:
 		VMSOCKET_DPRINTF("writing long to invalid register 0x%x.",
@@ -131,6 +155,13 @@ static uint32_t vmsocket_regs_readl(void *opaque, target_phys_addr_t addr) {
 	switch (addr & 0xFF) {
 	case VMSOCKET_STATUS_L_REG:
 		return s->status;
+	case VMSOCKET_READ_END_L_REG:
+		s->interrupt = 0;
+		qemu_set_irq(s->pci_dev->irq[0], 0);
+		pthread_mutex_unlock(&s->mutex);
+		return s->readed;
+	case VMSOCKET_INTR_GET_L_REG:
+		return s->interrupt;
 	}
 	VMSOCKET_DPRINTF("reading long from invalid register 0x%x.\n", 
 			 (uint32_t) addr & 0xFF);
@@ -186,6 +217,7 @@ void pci_vmsocket_init(PCIBus *bus) {
 	}
 
 	s = &d->vmsocket_state;
+	s->pci_dev = &d->dev;
 
 	/* Registers */
 	s->regs_addr = cpu_register_io_memory(vmsocket_regs_read,
@@ -211,7 +243,7 @@ void pci_vmsocket_init(PCIBus *bus) {
 	pci_conf[0x0b] = 0x05;
 	pci_conf[0x0e] = 0x00; // header_type
 
-	pci_conf[PCI_INTERRUPT_PIN] = 0; // we aren't going to support interrupts
+	pci_conf[PCI_INTERRUPT_PIN] = 1; // we are going to support interrupts
 	
 	/* Regions */
 	pci_register_bar(&d->dev, 0, 0x100, PCI_BASE_ADDRESS_SPACE_MEMORY, 
@@ -220,6 +252,13 @@ void pci_vmsocket_init(PCIBus *bus) {
 			 vmsocket_region_map);
 	pci_register_bar(&d->dev, 2, s->outbuffer_size, PCI_BASE_ADDRESS_SPACE_MEMORY,
 			 vmsocket_region_map);
+
+	s->interrupt = 0;
+	qemu_set_irq(s->pci_dev->irq[0], 0);
+
+	s->count = 0;
+	s->readed = 0;
+	pthread_mutex_init(&s->mutex, NULL);
 }
 
 int vmsocket_get_buffer_size(void)
