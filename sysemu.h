@@ -232,13 +232,20 @@ extern CharDriverState *parallel_hds[MAX_PARALLEL_PORTS];
 extern CharDriverState *virtcon_hds[MAX_VIRTIO_CONSOLES];
 
 /* VMSocket */
-
 #define MAX_VMSOCKET_DEVICES 1
 
 extern CharDriverState * vmsocket_chardev;
 void vmsocket_init(const char * optarg);
 int vmsocket_get_buffer_size(void);
 
+/* VMSemaphore */
+#define MAX_VMSEMAPHORE_DEVICES 16
+void vmsemaphore_init(const char * optarg);
+int vmsemaphore_get_buffer_size(void);
+
+/* VMShm */
+void vmshm_init(const char * optarg);
+int vmshm_get_buffer_size(void);
 
 #define TFR(expr) do { if ((expr) != -1) break; } while (errno == EINTR)
 

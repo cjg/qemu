@@ -1596,6 +1596,20 @@ Connects to AF_UNIX socket PCI card server listening on 'path' and exposes \
 as a PCI device in the guest.
 ETEXI
 
+DEF("vmsemaphore", HAS_ARG, QEMU_OPTION_vmsemaphore, \
+    "-vmsemaphore file exposes the named POSIX semaphore as a PCI device.\n")
+STEXI
+@item -vmsemaphore @var{name}
+Exposes the named POSIX semaphore as a PCI device
+ETEXI
+
+DEF("vmshm", HAS_ARG, QEMU_OPTION_vmshm, \
+    "-vmshm trunk exposes the named POSIX Shared Memory as a PCI device.\n")
+STEXI
+@item -vmshm @var{trunk}
+Exposes the named POSIX shared memory trunk as a PCI device
+ETEXI
+
 DEF("pidfile", HAS_ARG, QEMU_OPTION_pidfile, \
     "-pidfile file   write PID to 'file'\n")
 STEXI

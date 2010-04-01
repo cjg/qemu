@@ -174,4 +174,14 @@ extern int vmsocket_enabled;
 extern char *vmsocket_device;
 void pci_vmsocket_init(PCIBus *bus);
 
+/* vmsemaphore.c */
+extern int vmsemaphore_enabled;
+extern char *vmsemaphore_device;
+void pci_vmsemaphore_init(PCIBus *bus);
+
+/* vmshm.c */
+extern int vmshm_enabled;
+extern char *vmshm_device;
+void pci_vmshm_init(PCIBus *bus);
+
 #endif

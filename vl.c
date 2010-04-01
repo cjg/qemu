@@ -291,6 +291,12 @@ static void *boot_set_opaque;
 /* VMSocket */
 int vmsocket_enabled = 0;
 
+/* VMSemaphore */
+int vmsemaphore_enabled = 0;
+
+/* VMShm */
+int vmshm_enabled = 0;
+
 /***********************************************************/
 /* x86 ISA bus support */
 
@@ -5511,6 +5517,15 @@ int main(int argc, char **argv, char **envp)
                 vmsocket_device = strdup(optarg);
                 vmsocket_enabled = 1;
                 break;
+            case QEMU_OPTION_vmsemaphore:
+                //vmsemaphore_device = strdup(optarg);
+                vmsemaphore_enabled = 1;
+		vmsemaphore_init(strdup(optarg));
+                break;
+            case QEMU_OPTION_vmshm:
+                vmshm_device = strdup(optarg);
+                vmshm_enabled = 1;
+                break;
             }
         }
     }
@@ -5817,6 +5832,17 @@ int main(int argc, char **argv, char **envp)
     if (vmsocket_enabled) {
         vmsocket_init(vmsocket_device);
         ram_size += vmsocket_get_buffer_size();
+    }
+
+    
+    if (vmsemaphore_enabled) {
+       // ram_size += vmsemaphore_get_buffer_size();
+    }
+
+
+    if (vmshm_enabled) {
+        vmshm_init(vmshm_device);
+        //ram_size += vmshm_get_buffer_size();
     }
 
     module_call_init(MODULE_INIT_DEVICE);

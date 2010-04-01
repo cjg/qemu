@@ -236,15 +236,10 @@ void pci_vmsocket_init(PCIBus *bus) {
 
     /* PCI config */
     pci_conf = d->dev.config;
-    pci_conf[0x00] = 0xf4; // Qumranet vendor ID 0x5002
-    pci_conf[0x01] = 0x1a;
-    pci_conf[0x02] = 0x10;
-    pci_conf[0x03] = 0x11;
-    pci_conf[0x04] = PCI_COMMAND_IOACCESS | PCI_COMMAND_MEMACCESS;
-    pci_conf[0x0a] = 0x12; // RAM controller
-    pci_conf[0x0b] = 0x05;
-    pci_conf[0x0e] = 0x00; // header_type
-
+    pci_config_set_vendor_id(pci_conf, PCI_VENDOR_ID_REDHAT_QUMRANET);
+    pci_config_set_device_id(pci_conf, 0x6662);
+    pci_config_set_class(pci_conf, PCI_CLASS_OTHERS);
+    pci_conf[PCI_HEADER_TYPE] = PCI_HEADER_TYPE_NORMAL; // header_type
     pci_conf[PCI_INTERRUPT_PIN] = 1; // we are going to support interrupts
 
     /* Regions */
