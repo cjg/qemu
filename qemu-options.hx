@@ -1588,10 +1588,10 @@ non graphical mode.
 ETEXI
 
 DEF("vmsocket", HAS_ARG, QEMU_OPTION_vmsocket, \
-    "-vmsocket unix:file connects to AF_UNIX socket PCI card server \
+    "-vmsocketfile connects to AF_UNIX socket PCI card server \
     listening on 'path' and exposes as a PCI device in the guest\n")
 STEXI
-@item -ivshmem unix:@var{file}
+@item -vmsocket @var{file}
 Connects to AF_UNIX socket PCI card server listening on 'path' and exposes \
 as a PCI device in the guest.
 ETEXI
