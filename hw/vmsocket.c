@@ -128,6 +128,7 @@ static void vmsocket_regs_writel(void *opaque, target_phys_addr_t addr,
         break;
     case VMSOCKET_READ_BEGIN_L_REG:
         pthread_mutex_lock(&s->mutex);
+        s->interrupt = 0;
         s->readed = 0;
         s->count = val;
         VMSOCKET_DPRINTF("Read request: %u\n", (unsigned) s->count);
